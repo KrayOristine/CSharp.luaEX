@@ -940,7 +940,7 @@ function Type.GetGenericArguments(this)
       local typeParameterCount = band(flags, 0xFF00)
       if typeParameterCount ~= 0 then
         typeParameterCount = typeParameterCount / 256
-        for i = 3, 2 + typeParameterCount do
+        for i = 3, 1 + typeParameterCount do
           t[count] = typeof(metadata[i])
           count = count + 1
         end

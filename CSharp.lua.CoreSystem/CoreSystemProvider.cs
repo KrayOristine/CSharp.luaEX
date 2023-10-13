@@ -5,7 +5,14 @@ namespace CSharpLua.CoreSystem {
   public static class CoreSystemProvider {
     private const string CoreSystemDirectory = @".\CoreSystem";
 
-    public static IEnumerable<string> GetCoreSystemFiles() {
+    public enum ApiTypes {
+      None = 0,
+      War3Api,
+      WCSharp,
+      War3ApiEx = War3Api
+    }
+
+    public static IEnumerable<string> GetCoreSystemFiles(ApiTypes apiTypes) {
       yield return Path.Combine(CoreSystemDirectory, @"Natives.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Core.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Interfaces.lua");
@@ -18,7 +25,17 @@ namespace CSharpLua.CoreSystem {
       yield return Path.Combine(CoreSystemDirectory, @"Enum.lua");
       yield return Path.Combine(CoreSystemDirectory, @"TimeSpan.lua");
       yield return Path.Combine(CoreSystemDirectory, @"DateTime.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+      switch (apiTypes) {
+        case ApiTypes.WCSharp:
+          yield return Path.Combine(CoreSystemDirectory, @"WCSharp.lua");
+          break;
+
+        default:
+        case ApiTypes.None:
+        case ApiTypes.War3Api:
+          yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+          break;
+      }
       yield return Path.Combine(CoreSystemDirectory, @"Collections\EqualityComparer.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Array.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Type.lua");
