@@ -6,7 +6,7 @@
 local System = System
 local ArrayInt32 = System.Array(System.Int32)
 System.define("System.Random", (function ()
-  local Sample, InternalSample, GenerateSeed, Next, GetSampleForLargeRange, NextDouble, 
+  local Sample, InternalSample, GenerateSeed, Next, GetSampleForLargeRange, NextDouble,
   NextBytes, internal, __ctor__, rnd
   internal = function (this)
     this._seedArray = ArrayInt32:new(56)
@@ -118,7 +118,7 @@ System.define("System.Random", (function ()
     end
   end
   GetSampleForLargeRange = function (this)
-    -- The distribution of double value returned by Sample 
+    -- The distribution of double value returned by Sample
     -- is not distributed well enough for a large range.
     -- If we use Sample for a range [int.MinValue..int.MaxValue)
     -- We will end up getting even numbers only.

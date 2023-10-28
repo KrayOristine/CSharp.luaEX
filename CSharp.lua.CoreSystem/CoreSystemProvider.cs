@@ -2,17 +2,10 @@ using System.Collections.Generic;
 using System.IO;
 
 namespace CSharpLua.CoreSystem {
-  public static class CoreSystemProvider {
+  public static partial class CoreSystemProvider {
     private const string CoreSystemDirectory = @".\CoreSystem";
 
-    public enum ApiTypes {
-      None = 0,
-      War3Api,
-      WCSharp,
-      War3ApiEx = War3Api
-    }
-
-    public static IEnumerable<string> GetCoreSystemFiles(ApiTypes apiTypes) {
+    public static IEnumerable<string> GetCoreSystemFiles(Wc3Api apiTypes = Wc3Api.War3Api) {
       yield return Path.Combine(CoreSystemDirectory, @"Natives.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Core.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Interfaces.lua");
@@ -26,15 +19,18 @@ namespace CSharpLua.CoreSystem {
       yield return Path.Combine(CoreSystemDirectory, @"TimeSpan.lua");
       yield return Path.Combine(CoreSystemDirectory, @"DateTime.lua");
       switch (apiTypes) {
-        case ApiTypes.WCSharp:
+        case Wc3Api.WCSharp:
           yield return Path.Combine(CoreSystemDirectory, @"WCSharp.lua");
           break;
 
-        default:
-        case ApiTypes.None:
-        case ApiTypes.War3Api:
+        case Wc3Api.War3Api:
           yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
           break;
+
+        default:
+          yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+          break;
+
       }
       yield return Path.Combine(CoreSystemDirectory, @"Collections\EqualityComparer.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Array.lua");
