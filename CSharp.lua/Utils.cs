@@ -604,7 +604,7 @@ namespace CSharpLua {
           node = node.Parent.Parent;
         }
         if (node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Template, out string text)) {
-          return GetCodeTemplateFromAttributeText(text);
+          return GetCodeTemplateFromAttributeText(text, codeTemplateAttributeRegex_);
         }
       } else if (symbol.Kind == SymbolKind.Field) {
         Contract.Assert(symbol.IsFromAssembly());
@@ -612,20 +612,40 @@ namespace CSharpLua {
       } else {
         string xml = symbol.GetDocumentationCommentXml();
         if (xml != null) {
-          return GetCodeTemplateFromAttributeText(xml);
+          return GetCodeTemplateFromAttributeText(xml, codeTemplateAttributeRegex_);
         }
       }
       return null;
     }
 
-    private static readonly Regex codeTemplateAttributeRegex_ = new(@"@CSharpLua.Template\s*=\s*(.+)\s*", RegexOptions.Compiled);
-
-    internal static string TryGetCodeTemplateFromAttributeText(string document) {
-      return document is null ? null : GetCodeTemplateFromAttributeText(document);
+    public static (string get, string set) GetPropertyTemplateFromAttribute(this ISymbol symbol) {
+      var node = symbol.GetDeclaringSyntaxNode();
+      string get = null;
+      string set = null;
+      if (node != null) {
+        if (symbol.Kind == SymbolKind.Field) {
+          node = node.Parent.Parent;
+        }
+        if (node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Get, out string getText)) {
+          get = GetCodeTemplateFromAttributeText(getText, codeGetAttributeRegex_);
+        }
+        if (node.HasCSharpLuaAttribute(LuaDocumentStatement.AttributeFlags.Set, out string setText)) {
+          set = GetCodeTemplateFromAttributeText(setText, codeSetAttributeRegex_);
+        }
+      }
+      return (get, set);
     }
 
-    private static string GetCodeTemplateFromAttributeText(string document) {
-      var matches = codeTemplateAttributeRegex_.Matches(document);
+    private static readonly Regex codeTemplateAttributeRegex_ = new(@"@CSharpLua.Template\s*=\s*(.+)\s*", RegexOptions.Compiled);
+    private static readonly Regex codeGetAttributeRegex_ = new(@"@CSharpLua.Get\s*=\s*(.+)\s*", RegexOptions.Compiled);
+    private static readonly Regex codeSetAttributeRegex_ = new(@"@CSharpLua.Set\s*=\s*(.+)\s*", RegexOptions.Compiled);
+
+    internal static string TryGetCodeTemplateFromAttributeText(string document) {
+      return document is null ? null : GetCodeTemplateFromAttributeText(document, codeTemplateAttributeRegex_);
+    }
+
+    private static string GetCodeTemplateFromAttributeText(string document, Regex regex) {
+      var matches = regex.Matches(document);
       if (matches.Count > 0) {
         string text = matches[0].Groups[1].Value;
         return text.Trim().Trim('"');
@@ -1401,8 +1421,12 @@ namespace CSharpLua {
       const int kParametersMaxCount = 256;
 
       int accessibility = (int)symbol.DeclaredAccessibility;
-      int isStatic = symbol.IsStatic ? 1 : 0;
-      int flags = accessibility | (isStatic << 3);
+      int flags = accessibility;
+      if (symbol.IsStatic) {
+        flags |= 1 << 3;
+      } else if (symbol.IsAbstract) {
+         flags |= 1 << 4;
+      }
       switch (symbol.Kind) {
         case SymbolKind.Method: {
           var methodSymbol = (IMethodSymbol)symbol;
@@ -1423,6 +1447,12 @@ namespace CSharpLua {
         }
         case SymbolKind.NamedType: {
           var nameType = (INamedTypeSymbol)symbol;
+          if (nameType.IsStatic) {
+            flags |= 1 << 4;
+            flags |= 1 << 5;
+          } else if (nameType.IsSealed) {
+            flags |= 1 << 5;
+          }
           if (nameType.IsGenericType) {
             int typeCount = nameType.TypeParameters.Length;
             Contract.Assert(typeCount < kParametersMaxCount);

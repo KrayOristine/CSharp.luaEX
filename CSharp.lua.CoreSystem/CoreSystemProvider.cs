@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using System.IO;
 
 namespace CSharpLua.CoreSystem {
-  public static class CoreSystemProvider {
+  public static partial class CoreSystemProvider {
     private const string CoreSystemDirectory = @".\CoreSystem";
 
-    public static IEnumerable<string> GetCoreSystemFiles() {
+    public static IEnumerable<string> GetCoreSystemFiles(Wc3Api apiTypes = Wc3Api.War3Api) {
       yield return Path.Combine(CoreSystemDirectory, @"Natives.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Core.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Interfaces.lua");
@@ -18,7 +18,20 @@ namespace CSharpLua.CoreSystem {
       yield return Path.Combine(CoreSystemDirectory, @"Enum.lua");
       yield return Path.Combine(CoreSystemDirectory, @"TimeSpan.lua");
       yield return Path.Combine(CoreSystemDirectory, @"DateTime.lua");
-      yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+      switch (apiTypes) {
+        case Wc3Api.WCSharp:
+          yield return Path.Combine(CoreSystemDirectory, @"WCSharp.lua");
+          break;
+
+        case Wc3Api.War3Api:
+          yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+          break;
+
+        default:
+          yield return Path.Combine(CoreSystemDirectory, @"Common.lua");
+          break;
+
+      }
       yield return Path.Combine(CoreSystemDirectory, @"Collections\EqualityComparer.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Array.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Type.lua");
@@ -30,6 +43,9 @@ namespace CSharpLua.CoreSystem {
       yield return Path.Combine(CoreSystemDirectory, @"Collections\LinkedList.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Collections\Linq.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Collections\SortedSet.lua");
+      yield return Path.Combine(CoreSystemDirectory, @"Collections\SortedList.lua");
+      yield return Path.Combine(CoreSystemDirectory, @"Collections\SortedDictionary.lua");
+      yield return Path.Combine(CoreSystemDirectory, @"Collections\PriorityQueue.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Convert.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Math.lua");
       yield return Path.Combine(CoreSystemDirectory, @"Random.lua");

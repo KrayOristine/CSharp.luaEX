@@ -82,16 +82,23 @@ local function getName(this)
   return this.name
 end
 
-local function isAccessibility(memberInfo, kind)
-  local metadata = memberInfo.metadata
-  if not metadata then
-    throwNoMatadata(memberInfo.c.__name__ .. "." .. memberInfo.name)
-  end
+local function isAccessibility(this, kind)
+  local metadata = this:getMetadata()
   return band(metadata[2], 0x7) == kind
 end
 
 local MemberInfo = define("System.Reflection.MemberInfo", {
   getName = getName,
+  getCls = function (this)
+    return this.c
+  end,
+  getMetadata = function (this)
+	  local metadata = this.metadata
+    if not metadata then
+      throwNoMatadata(this:getCls().__name__ .. "." .. this.name)
+    end
+    return metadata
+  end,
   EqualsObj = function (this, obj)
     if getmetatable(this) ~= getmetatable(obj) then
       return false
@@ -102,14 +109,15 @@ local MemberInfo = define("System.Reflection.MemberInfo", {
     return this.memberType
   end,
   getDeclaringType = function (this)
-    return typeof(this.c)
+    return typeof(this:getCls())
+  end,
+  getIsAbstract = function (this)
+	  local metadata = this:getMetadata()
+    return band(metadata[2], 0x10) ~= 0
   end,
   getIsStatic = function (this)
-    local metadata = this.metadata
-    if not metadata then
-      throwNoMatadata(this.c.__name__ .. "." .. this.name)
-    end
-    return band(metadata[2], 0x8) == 1
+    local metadata = this:getMetadata()
+    return band(metadata[2], 0x8) ~= 0
   end,
   getIsPrivate = function (this)
     return isAccessibility(this, 1)
@@ -683,7 +691,7 @@ function Type.GetMethod(this, name)
         if next and next[1] == name then
           throw(AmbiguousMatchException())
         end
-        return buildMethodInfo(cls, name, item)
+        return buildMethodInfo(cls, name, item, item[3])
       end
       return nil
     end
@@ -706,7 +714,7 @@ function Type.GetMethods(this)
         for i = 1, #methods do
           local method = methods[i]
           if hasPublicFlag(method[2]) then
-            t[count] = buildMethodInfo(cls, method[1], method)
+            t[count] = buildMethodInfo(cls, method[1], method, method[3])
             count = count + 1
           end
         end
@@ -743,7 +751,7 @@ function Type.IsDefined(this, attributeType, inherit)
     if metadata then
       local class  = metadata.class
       if class then
-        return isMetadataDefined(class, 2, attributeType)
+        return isMetadataDefined(class, 3, attributeType)
       end
     end
     return false
@@ -753,7 +761,7 @@ function Type.IsDefined(this, attributeType, inherit)
       if metadata then
         local class  = metadata.class
         if class then
-          if isMetadataDefined(class, 2, attributeType) then
+          if isMetadataDefined(class, 3, attributeType) then
             return true
           end
         end
@@ -777,7 +785,7 @@ function Type.GetCustomAttributes(this, attributeType, inherit)
     if metadata then
       local class  = metadata.class
       if class then
-        fillMetadataCustomAttributes(t, class, 2, attributeType)
+        fillMetadataCustomAttributes(t, class, 3, attributeType)
       end
     end
   else
@@ -786,7 +794,7 @@ function Type.GetCustomAttributes(this, attributeType, inherit)
       if metadata then
         local class  = metadata.class
         if class then
-          fillMetadataCustomAttributes(t, class, 2, attributeType)
+          fillMetadataCustomAttributes(t, class, 3, attributeType)
         end
       end
       cls = getmetatable(cls)
@@ -853,7 +861,23 @@ function System.GetExecutingAssembly(assembly)
 	return setmetatable(assembly, Assembly)
 end
 
+setmetatable(Type, MemberInfo)
 Type.getAssembly = getAssembly
+
+Type.memberType = 32
+
+Type.getCls = function (this)
+  return this[1]
+end
+
+Type.getMetadata = function (this)
+  local cls = this[1]
+  local metadata = rawget(cls, "__metadata__")
+  if not metadata then
+    throwNoMatadata(cls.__name__)
+  end
+  return metadata.class
+end
 
 function Type.getAssemblyQualifiedName(this)
   return this:getName() .. ', ' .. getName(assembly)
@@ -865,7 +889,7 @@ function Type.getAttributes(this)
   if metadata then
     metadata = metadata.class
     if metadata then
-      return metadata[1]
+      return metadata[2]
     end
   end
   throwNoMatadata(cls.__name__)
@@ -912,11 +936,11 @@ function Type.GetGenericArguments(this)
   if metadata then
     metadata = metadata.class
     if metadata then
-      local flags = metadata[1]
+      local flags = metadata[2]
       local typeParameterCount = band(flags, 0xFF00)
       if typeParameterCount ~= 0 then
         typeParameterCount = typeParameterCount / 256
-        for i = 2, 1 + typeParameterCount do
+        for i = 3, 1 + typeParameterCount do
           t[count] = typeof(metadata[i])
           count = count + 1
         end
@@ -946,7 +970,7 @@ end
 local Attribute = System.Attribute
 
 function Attribute.GetCustomAttribute(element, attributeType, inherit)
-  return element:GetCustomAttribute(attributeType, inherit)
+  return element:GetCustomAttributes(attributeType, inherit)
 end
 
 function Attribute.GetCustomAttributes(element, attributeType, inherit)
@@ -1051,3 +1075,56 @@ define("System.Activator", {
     return createInstance(type[1], nonPublic)
   end
 })
+
+define("System.Reflection.CustomAttributeExtensions", {
+  GetCustomAttribute = function (element, attributeType, inherit)
+    if element == nil then throw(ArgumentNullException("element")) end
+    if attributeType == nil then throw(ArgumentNullException("attributeType")) end
+    if type(attributeType) == "boolean" then
+      attributeType, inherit = inherit, attributeType
+    end
+    if getmetatable(attributeType) ~= Type then
+      attributeType = typeof(attributeType)
+    end
+    return element:GetCustomAttributes(attributeType, inherit)
+  end,
+  IsDefined = function (element, attributeType, inherit)
+    if element == nil then throw(ArgumentNullException("element")) end
+    return element:IsDefined(attributeType, inherit)
+  end
+})
+
+System.Delegate.CreateDelegate = function (delegateType, ...)
+  if delegateType == nil then throw(ArgumentNullException("delegateType")) end
+  local n = select("#", ...)
+  if n == 1 then
+    local method = ...
+    if method == nil then throw(ArgumentNullException("method")) end
+    return method.f
+  end
+  local target, method, ignoreCase, throwOnBindFailure = ...
+  if target == nil or method == nil then ArgumentNullException() end
+  if type(method) == "boolean" then
+    return method.f
+  end
+  if type(method) == "string" then
+    if getmetatable(target) == Type then
+      method = target:GetMethod(method, ignoreCase)
+      if method == nil then
+        if throwOnBindFailure == false then
+          return nil
+        end
+       throw(MissingMethodException()) 
+      end
+      return method.f
+    end
+    method = typeof(target):GetMethod(method)
+    if method == nil then
+      if ignoreCase == false then
+        return nil 
+      end
+      throw(MissingMethodException()) 
+    end
+  end
+  return System.fn(target, method.f)
+end
