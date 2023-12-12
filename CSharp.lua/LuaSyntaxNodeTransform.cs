@@ -402,7 +402,7 @@ namespace CSharpLua {
       CheckRecordParameterCtor(typeSymbol, node, typeDeclaration);
       BuildTypeMembers(typeDeclaration, node);
       CheckTypeDeclaration(typeSymbol, typeDeclaration, attributes);
-  
+
       typeDeclarations_.Pop();
       CurCompilationUnit.AddTypeDeclarationCount();
     }
@@ -1603,6 +1603,9 @@ namespace CSharpLua {
     private LuaExpressionSyntax BuildCommonAssignmentExpression(ExpressionSyntax leftNode, ExpressionSyntax rightNode, string operatorToken, ExpressionSyntax parent) {
       var left = VisitExpression(leftNode);
       var right = VisitExpression(rightNode);
+      if (rightNode is BinaryExpressionSyntax) {
+        right = right.Parenthesized();
+      }
       return BuildCommonAssignmentExpression(left, right, operatorToken, rightNode, parent);
     }
 
@@ -2717,7 +2720,7 @@ namespace CSharpLua {
       return symbol.Kind switch {
         SymbolKind.Property or SymbolKind.Event =>
           BuildFieldOrPropertyMemberAccessExpression(expression, name, symbol.IsStatic),
-        
+
         SymbolKind.Method when IsDelegateExpression((IMethodSymbol)symbol, node, name, expression, out var delegateExpression) =>
           delegateExpression,
 
@@ -3928,7 +3931,7 @@ namespace CSharpLua {
           case SyntaxKind.OrPattern: {
             var condition = BuildPatternExpression(governingIdentifier, arm.Pattern, node.GoverningExpression);
             FillSwitchPatternSyntax(ref ifStatement, condition, arm.WhenClause, result, arm.Expression);
-            break; 
+            break;
           }
           case SyntaxKind.DiscardPattern: {
             var elseClause = new LuaElseClauseSyntax();
@@ -4050,7 +4053,7 @@ namespace CSharpLua {
       var original = expression.AcceptExpression(this);
       switch (typeInfo.SpecialType) {
         case SpecialType.System_String: {
-            if ((IsPreventDebug 
+            if ((IsPreventDebug
               && !expression.IsKind(SyntaxKind.AddExpression)
               && !expression.IsKind(SyntaxKind.StringLiteralExpression)) || alignment != null) {
               return FormatAlignment(original, null, alignment);
